@@ -1,0 +1,61 @@
+version: '3.5'
+services:
+  db:
+    image: registry.ferdowsi.cloud/database/postgres:${POSTGRES_VERSION:-13-alpine}
+    restart: unless-stopped
+    container_name: guacamole_postgres
+    hostname: guacamole_postgres
+    environment:
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME}
+    volumes:
+      - guacamole_db_data:/var/lib/postgresql/data/
+    ports:
+      - 127.0.0.1:${DATABASE_PORT:-5432}:5432
+
+  adminer:
+    image: registry.ferdowsi.cloud/database/adminer:4.8.1
+    container_name: adminer
+    hostname: adminer
+    restart: always
+    ports:
+      - ${ADMINER_PORT:-8080}:8080
+
+  guacd:
+    image: registry.ferdowsi.cloud/guacamole/guacd:${GUACAMOLE_VERSION:-1.4.0}
+    restart: always 
+    container_name: guacd
+    hostname: guacd
+    ports:
+      - ${GUACD_PORT:-4822}:4822
+
+  guacamole:
+    image: registry.ferdowsi.cloud/guacamole/guacamole:${GUACAMOLE_VERSION:-1.4.0}
+    container_name: guacamole
+    hostname: guacamole
+    environment:
+      - POSTGRES_HOSTNAME=guacamole_postgres
+      - POSTGRES_PORT=${DATABASE_PORT:-5432}
+      - POSTGRES_DATABASE=${DATABASE_NAME}
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - GUACD_HOSTNAME=127.0.0.1  
+      - GUACD_PORT=${GUACD_PORT:-4822}             
+    ports:
+      - ${GUACAMOLE_PORT:-3000}:8080
+    depends_on:
+      - guacd
+      - db
+
+volumes:
+  guacamole_db_data:
+
+networks:
+  # Docker uses the 172.17-172.31 range, and then starts with the 192.168.x.x/20 range. 
+  default:
+    name: guacamole_net
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.30.0/24
